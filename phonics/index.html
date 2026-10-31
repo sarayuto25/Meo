@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Meo Phonics — เรียนโฟนิกส์กับพ่อแม่</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;600;700&family=Fredoka:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" data-go="home">
+      <span class="mascot-mini">🐱</span>
+      <span class="brand-text">Meo <b>Phonics</b></span>
+    </div>
+    <div class="stats">
+      <span class="pill" title="ดาวทั้งหมด">⭐ <b id="starCount">0</b></span>
+      <span class="pill" title="เรียนติดต่อกัน (วัน)">🔥 <b id="streakCount">0</b></span>
+      <button class="pill btn-icon" id="settingsBtn" title="ตั้งค่า">⚙️</button>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab active" data-go="home">🏠<span>หน้าแรก</span></button>
+    <button class="tab" data-go="sounds">🔤<span>การ์ดเสียง</span></button>
+    <button class="tab" data-go="games">🎮<span>เกม</span></button>
+    <button class="tab" data-go="stickers">🏅<span>สติกเกอร์</span></button>
+    <button class="tab" data-go="parents">👨‍👩‍👧<span>พ่อแม่</span></button>
+  </nav>
+
+  <main id="app">
+    <!-- HOME -->
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <div class="hero-mascot" id="heroMascot">🐱</div>
+        <div class="hero-text">
+          <h1>สวัสดี! ฉันชื่อ <span class="hl">เหมียว</span></h1>
+          <p>มาฝึก <b>ออกเสียงให้ถูก</b> + <b>ทำท่ามือ</b> + <b>เล่นเกม</b> กับพ่อแม่กันเถอะ!</p>
+          <div class="hero-btns">
+            <button class="btn big primary" data-go="sounds">เริ่มเรียนเลย 🚀</button>
+            <button class="btn big" id="todayBtn">เสียงประจำวัน 🎁</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step"><div class="step-n">1</div><div class="step-e">👂</div><b>ฟัง</b><small>กด 🔊 ฟังเสียงจริง</small></div>
+        <div class="step"><div class="step-n">2</div><div class="step-e">👄</div><b>ดูปาก</b><small>วางปาก-ลิ้นตามคำแนะนำ</small></div>
+        <div class="step"><div class="step-n">3</div><div class="step-e">🙌</div><b>ทำท่ามือ</b><small>ทำท่าพร้อมออกเสียง</small></div>
+        <div class="step"><div class="step-n">4</div><div class="step-e">🎤</div><b>พูด & อัด</b><small>อัดเสียงแล้วฟังเทียบ</small></div>
+        <div class="step"><div class="step-n">5</div><div class="step-e">🎮</div><b>เล่นเกม</b><small>สะสมดาวแลกสติกเกอร์</small></div>
+      </div>
+
+      <h2 class="section-title">แผนที่การเรียน 🗺️</h2>
+      <div class="journey" id="journey"></div>
+    </section>
+
+    <!-- SOUNDS -->
+    <section class="view" id="view-sounds">
+      <h2 class="section-title">การ์ดเสียง 🔤 <small>แตะการ์ดเพื่อเรียน</small></h2>
+      <div id="soundGroups"></div>
+    </section>
+
+    <!-- GAMES -->
+    <section class="view" id="view-games">
+      <div id="gameMenu">
+        <h2 class="section-title">เลือกเกม 🎮</h2>
+        <div class="game-grid">
+          <button class="game-card" data-game="detective" style="--c:#ff7a59">
+            <div class="gc-e">🕵️</div><b>นักสืบเสียง</b><small>ฟังคำ แล้วหาเสียงแรก</small>
+          </button>
+          <button class="game-card" data-game="blend" style="--c:#ffb703">
+            <div class="gc-e">🧪</div><b>ผสมเสียงเป็นคำ</b><small>แตะทีละเสียง แล้วรวมเป็นคำ</small>
+          </button>
+          <button class="game-card" data-game="tricky" style="--c:#5bc0be">
+            <div class="gc-e">👯</div><b>คู่แฝดหลอกหู</b><small>ฝึกแยกเสียงที่คนไทยสับสน</small>
+          </button>
+          <button class="game-card" data-game="action" style="--c:#b892ff">
+            <div class="gc-e">🙌</div><b>ท่ามือปริศนา</b><small>ดูท่ามือ ทายว่าเสียงอะไร</small>
+          </button>
+          <button class="game-card" data-game="say" style="--c:#f15bb5">
+            <div class="gc-e">🎤</div><b>พูดให้ไมค์ฟัง</b><small>พูดคำ ให้เครื่องตรวจเสียง</small>
+          </button>
+          <button class="game-card" data-game="family" style="--c:#06d6a0">
+            <div class="gc-e">👨‍👩‍👧</div><b>แข่งกับพ่อแม่</b><small>ผลัดกันทำท่า-ทายเสียง จับเวลา</small>
+          </button>
+        </div>
+      </div>
+      <div id="gameArea" class="hidden"></div>
+    </section>
+
+    <!-- STICKERS -->
+    <section class="view" id="view-stickers">
+      <h2 class="section-title">สมุดสติกเกอร์ 🏅 <small>สะสมดาวเพื่อปลดล็อก</small></h2>
+      <div class="sticker-grid" id="stickerGrid"></div>
+      <h2 class="section-title">ความก้าวหน้า 📈</h2>
+      <div class="progress-list" id="progressList"></div>
+    </section>
+
+    <!-- PARENTS -->
+    <section class="view" id="view-parents">
+      <h2 class="section-title">คู่มือสำหรับพ่อแม่ 👨‍👩‍👧</h2>
+      <div class="parent-grid">
+        <div class="card">
+          <h3>⏱️ เรียนวันละ 10–15 นาที</h3>
+          <ul>
+            <li>วันละ 2–3 เสียงใหม่ + ทบทวนเสียงเก่า</li>
+            <li>ทำ <b>ท่ามือพร้อมกัน</b> ทุกครั้งที่ออกเสียง (ร่างกายช่วยจำ)</li>
+            <li>จบด้วยเกม 1 เกม ให้รู้สึกสนุกเสมอ</li>
+            <li>ชมความพยายาม ไม่ใช่แค่ความถูกต้อง 💛</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>🔤 "เสียง" ไม่ใช่ "ชื่อ" ตัวอักษร</h3>
+          <p>Phonics สอนเสียงที่ตัวอักษรทำ เช่น <b>s</b> = "ซ์ซ์ซ์" ไม่ใช่ "เอส", <b>m</b> = "ม์ม์ม์" ไม่ใช่ "เอ็ม"</p>
+          <p>ระวัง <b>อย่าเติมสระ</b> ต่อท้าย เช่น <b>t</b> ต้องเป็น "ท์" สั้นๆ ไม่ใช่ "เทอะ" เพราะจะทำให้ผสมคำผิด (t-a-p กลายเป็น เทอะ-แอะ-เพอะ)</p>
+        </div>
+        <div class="card">
+          <h3>🧩 วิธีผสมเสียง (Blending)</h3>
+          <ol>
+            <li>ชี้ทีละตัว พูดทีละเสียง: <b>c – a – t</b></li>
+            <li>พูดเร็วขึ้น ลากเสียงติดกัน: <b>caaat</b></li>
+            <li>พูดเป็นคำ: <b>cat!</b> 🐱</li>
+          </ol>
+          <p>เด็ก 9 ขวบเรียนเร็ว ลองท้าให้แยกเสียงกลับ (Segmenting): "dog มีเสียงอะไรบ้าง?" → d-o-g</p>
+        </div>
+        <div class="card">
+          <h3>🇹🇭 เสียงที่เด็กไทยต้องระวัง</h3>
+          <table class="trap-table">
+            <tr><th>เสียง</th><th>มักออกผิดเป็น</th><th>เคล็ดลับ</th></tr>
+            <tr><td>th</td><td>ด / ท / ซ</td><td>แลบลิ้นออกมานิดหน่อย</td></tr>
+            <tr><td>v</td><td>ว / บ</td><td>ฟันบนกัดปากล่าง</td></tr>
+            <tr><td>z</td><td>ซ</td><td>จับคอ ต้องสั่นเหมือนผึ้ง</td></tr>
+            <tr><td>r / l</td><td>สลับกัน</td><td>r ลิ้นไม่แตะ / l ลิ้นแตะ</td></tr>
+            <tr><td>sh / ch</td><td>ช เหมือนกัน</td><td>sh ลากยาว / ch สั้น</td></tr>
+            <tr><td>เสียงท้าย</td><td>กลืนหาย</td><td>cat, bag, box ต้องได้ยินตัวท้าย</td></tr>
+            <tr><td>g, j, d, b</td><td>ไม่ก้อง</td><td>จับคอ ต้องสั่น</td></tr>
+          </table>
+        </div>
+        <div class="card">
+          <h3>🙌 ทำไมต้องมีท่ามือ?</h3>
+          <p>ท่ามือช่วยให้เด็กจำเสียงด้วย <b>ตา หู และร่างกาย</b> พร้อมกัน (Multi-sensory) เด็กที่ลืมเสียงจะนึกออกเมื่อทำท่า</p>
+          <p>เคล็ดลับ: เปิด <b>"กระจกวิเศษ"</b> (กล้อง) ในการ์ดเสียง ให้ลูกเห็นตัวเองทำท่า และดูปากตัวเองตอนออกเสียง</p>
+        </div>
+        <div class="card">
+          <h3>📅 ตัวอย่างตาราง 1 สัปดาห์</h3>
+          <ul>
+            <li><b>จ.</b> เรียน 3 เสียงใหม่ + ท่ามือ</li>
+            <li><b>อ.</b> ทบทวน + เกมนักสืบเสียง</li>
+            <li><b>พ.</b> เรียน 3 เสียงใหม่ + อัดเสียงเทียบ</li>
+            <li><b>พฤ.</b> เกมผสมเสียงเป็นคำ</li>
+            <li><b>ศ.</b> คู่แฝดหลอกหู + พูดให้ไมค์ฟัง</li>
+            <li><b>ส.–อา.</b> แข่งกับพ่อแม่ 🏆 แลกสติกเกอร์</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>💡 หมายเหตุเรื่องเสียงในเว็บ</h3>
+          <p>เสียงอ่านมาจาก <b>เสียงสังเคราะห์ของเบราว์เซอร์</b> ซึ่งอ่านเสียงเดี่ยวๆ ได้ไม่สมบูรณ์ จึงให้ฟังจาก <b>คำตัวอย่าง</b> เป็นหลัก แนะนำให้พ่อแม่ใช้คำอธิบายการวางปากประกอบ</p>
+          <p>การตรวจเสียงพูดทำงานดีที่สุดบน <b>Chrome / Edge</b> (ต้องอนุญาตไมโครโฟน) ถ้าใช้ไม่ได้ พ่อแม่เป็นกรรมการแทนได้</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Sound detail modal -->
+  <div class="modal hidden" id="soundModal">
+    <div class="modal-box sound-box">
+      <button class="close" data-close>✕</button>
+      <div id="soundDetail"></div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="modal hidden" id="settingsModal">
+    <div class="modal-box">
+      <button class="close" data-close>✕</button>
+      <h2>⚙️ ตั้งค่า</h2>
+      <label class="field">ชื่อนักเรียน
+        <input id="kidName" type="text" maxlength="20" placeholder="เช่น น้องมิว" />
+      </label>
+      <label class="field">สำเนียง/เสียงอ่าน
+        <select id="voiceSelect"></select>
+      </label>
+      <label class="field">ความเร็วเสียง <span id="rateVal"></span>
+        <input id="rateRange" type="range" min="0.5" max="1.2" step="0.05" />
+      </label>
+      <label class="field row"><input id="sfxToggle" type="checkbox" /> เสียงประกอบเกม</label>
+      <div class="row-btns">
+        <button class="btn" id="testVoice">🔊 ทดสอบเสียง</button>
+        <button class="btn danger" id="resetBtn">🗑️ ล้างความก้าวหน้า</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <canvas id="confetti"></canvas>
+
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
