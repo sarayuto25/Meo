@@ -73,6 +73,7 @@
   function speak(text, { rate, onend } = {}) {
     if (!("speechSynthesis" in window)) { toast("เบราว์เซอร์นี้ไม่รองรับเสียงอ่าน"); return; }
     speechSynthesis.cancel();
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     const u = new SpeechSynthesisUtterance(text);
     const v = voices.find((x) => x.voiceURI === state.voiceURI);
     if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "en-GB";
@@ -81,16 +82,87 @@
     if (onend) u.onend = onend;
     speechSynthesis.speak(u);
   }
-  // Speak a sound: stretched sound (if continuous) then the key word
-  function speakSound(s) {
-    const w = s.words[0][0];
-    if (s.stretch) speak(`${s.stretch}... ${w}`, { rate: state.rate * 0.85 });
-    else speak(`${w}. ${w}`, { rate: state.rate * 0.85 });
+  // ================= Real human voice =================
+  // Priority: parent's own recording (IndexedDB) > bundled recording (AUDIO_FILES) > browser TTS
+  const BUNDLED = typeof AUDIO_FILES !== "undefined" ? AUDIO_FILES : {};
+  const parentClips = {}; // key -> object URL
+  let idb = null, currentAudio = null;
+
+  function openVoiceDB() {
+    return new Promise((res) => {
+      try {
+        const r = indexedDB.open("meoPhonicsVoice", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("clips");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => res(null);
+      } catch { res(null); }
+    });
   }
-  // Speak word slowly segmented by parts, then whole
-  // (browser voices read lone letters as letter NAMES, so we stretch the word slowly instead)
-  function speakSegmented(parts, word) {
-    speak(word, { rate: 0.4, onend: () => setTimeout(() => speak(word), 250) });
+  openVoiceDB().then((db) => {
+    idb = db;
+    if (!db) return;
+    const req = db.transaction("clips").objectStore("clips").openCursor();
+    req.onsuccess = () => {
+      const c = req.result;
+      if (c) { parentClips[c.key] = URL.createObjectURL(c.value); c.continue(); }
+    };
+  });
+  function saveParentClip(key, blob) {
+    if (parentClips[key]) URL.revokeObjectURL(parentClips[key]);
+    parentClips[key] = URL.createObjectURL(blob);
+    try { idb && idb.transaction("clips", "readwrite").objectStore("clips").put(blob, key); } catch { /* memory only */ }
+  }
+  function deleteParentClip(key) {
+    if (parentClips[key]) URL.revokeObjectURL(parentClips[key]);
+    delete parentClips[key];
+    try { idb && idb.transaction("clips", "readwrite").objectStore("clips").delete(key); } catch { /* ignore */ }
+  }
+  const clipURL = (key) => parentClips[key] || BUNDLED[key] || null;
+  const clipSource = (key) => (parentClips[key] ? "parent" : BUNDLED[key] ? "real" : "tts");
+  const SOURCE_LABEL = { parent: "👩 เสียงพ่อแม่", real: "🧑‍🏫 เสียงคนจริง", tts: "🤖 เสียงสังเคราะห์" };
+
+  function stopAll() {
+    window.speechSynthesis?.cancel();
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  }
+  function playURL(url, { slow = false, onend } = {}) {
+    stopAll();
+    const a = new Audio(url);
+    a.playbackRate = slow ? 0.7 : 1;
+    a.preservesPitch = true;
+    currentAudio = a;
+    a.onended = () => { if (currentAudio === a) { currentAudio = null; onend && onend(); } };
+    a.play().catch(() => { if (currentAudio === a) currentAudio = null; });
+  }
+  // Play a word: real recording if available, else TTS
+  function playWord(word, { rate, onend } = {}) {
+    const url = clipURL("word:" + word);
+    if (url) playURL(url, { slow: rate !== undefined && rate < 0.75, onend });
+    else speak(word, { rate, onend });
+  }
+  // Play a sound: the real phoneme clip then the key word; else TTS approximation
+  function speakSound(s, { slow = false } = {}) {
+    const w = s.words[0][0];
+    const url = clipURL("sound:" + s.g);
+    if (url) { playURL(url, { slow, onend: () => setTimeout(() => playWord(w, { rate: slow ? 0.5 : undefined }), 350) }); return; }
+    const rate = slow ? 0.5 : state.rate * 0.85;
+    if (s.stretch) speak(`${s.stretch}... ${w}`, { rate });
+    else speak(`${w}. ${w}`, { rate });
+  }
+  // Segment a word: real phoneme clips one by one, then the whole word.
+  // Without real clips we stretch the word slowly (TTS reads lone letters as letter NAMES).
+  function speakSegmented(parts, word, onPart) {
+    const urls = parts.map((p) => clipURL("sound:" + p));
+    if (urls.every(Boolean)) {
+      const step = (i) => {
+        if (i >= urls.length) { setTimeout(() => playWord(word), 400); return; }
+        onPart && onPart(i);
+        playURL(urls[i], { onend: () => setTimeout(() => step(i + 1), 250) });
+      };
+      step(0);
+      return;
+    }
+    playWord(word, { rate: 0.4, onend: () => setTimeout(() => playWord(word), 250) });
   }
 
   let actx;
@@ -143,32 +215,33 @@
   }
 
   // ================= Recorder =================
-  let mediaRec = null, recChunks = [], lastRecURL = null;
-  async function toggleRecord(btn, playBtn) {
-    if (mediaRec && mediaRec.state === "recording") { mediaRec.stop(); return; }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recChunks = [];
-      mediaRec = new MediaRecorder(stream);
-      mediaRec.ondataavailable = (e) => recChunks.push(e.data);
-      mediaRec.onstop = () => {
+  let mediaRec = null;
+  // Records up to maxMs; clicking the same button again stops early. Resolves with a Blob (or null).
+  function recordClip(btn, maxMs = 4000) {
+    if (mediaRec && mediaRec.state === "recording") { mediaRec.stop(); return Promise.resolve(null); }
+    return new Promise(async (resolve) => {
+      let stream;
+      try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch { toast("เปิดไมโครโฟนไม่ได้ — ต้องเปิดเว็บผ่าน https/localhost และกดอนุญาตไมค์"); resolve(null); return; }
+      stopAll();
+      const chunks = [];
+      const rec = new MediaRecorder(stream);
+      const label = btn.innerHTML;
+      mediaRec = rec;
+      rec.ondataavailable = (e) => e.data.size && chunks.push(e.data);
+      rec.onstop = () => {
         stream.getTracks().forEach((t) => t.stop());
-        if (lastRecURL) URL.revokeObjectURL(lastRecURL);
-        lastRecURL = URL.createObjectURL(new Blob(recChunks, { type: mediaRec.mimeType || "audio/webm" }));
         btn.classList.remove("recording");
-        btn.textContent = "🎙️ อัดใหม่";
-        playBtn.disabled = false;
-        toast("อัดเสร็จแล้ว! กด ▶️ ฟังเสียงตัวเอง แล้วเทียบกับ 🔊");
+        btn.innerHTML = label;
+        mediaRec = null;
+        resolve(chunks.length ? new Blob(chunks, { type: rec.mimeType || "audio/webm" }) : null);
       };
-      mediaRec.start();
+      rec.start();
       btn.classList.add("recording");
       btn.textContent = "⏹️ หยุดอัด";
-      setTimeout(() => mediaRec && mediaRec.state === "recording" && mediaRec.stop(), 5000);
-    } catch {
-      toast("เปิดไมโครโฟนไม่ได้ — กรุณาอนุญาตการใช้ไมค์");
-    }
+      setTimeout(() => rec.state === "recording" && rec.stop(), maxMs);
+    });
   }
-  function playRecording() { if (lastRecURL) new Audio(lastRecURL).play(); }
 
   // ================= Camera mirror =================
   let camStream = null;
@@ -206,7 +279,7 @@
   function openModal(m) { m.classList.remove("hidden"); document.body.style.overflow = "hidden"; }
   function closeModal(m) {
     m.classList.add("hidden"); document.body.style.overflow = "";
-    stopMirror(); window.speechSynthesis?.cancel();
+    stopMirror(); stopAll(); if (mediaRec && mediaRec.state === "recording") mediaRec.stop();
     renderSoundGroups(); renderJourney();
   }
 
@@ -271,6 +344,32 @@
     return esc(word.slice(0, i)) + "<b>" + esc(g) + "</b>" + esc(word.slice(i + g.length));
   }
 
+  // Parent voice recorder rows: the sound itself + each example word
+  function renderVoiceList(s) {
+    const list = $("#voiceList");
+    if (!list) return;
+    const items = [["sound:" + s.g, `เสียง /${s.g}/`], ...s.words.map(([w, e]) => ["word:" + w, `${e} ${w}`])];
+    list.innerHTML = items.map(([key, label]) => `
+      <div class="voice-row">
+        <span class="en vr-label">${esc(label)}</span>
+        <span class="vr-src">${SOURCE_LABEL[clipSource(key)]}</span>
+        <button class="btn rec small" data-vrec="${esc(key)}">🎙️ อัด</button>
+        ${parentClips[key] ? `<button class="btn small" data-vplay="${esc(key)}">▶️</button>
+          <button class="btn small" data-vdel="${esc(key)}">🗑️</button>` : ""}
+      </div>`).join("");
+    $$("[data-vrec]", list).forEach((b) => b.onclick = async () => {
+      const blob = await recordClip(b, 3000);
+      if (!blob) return;
+      saveParentClip(b.dataset.vrec, blob);
+      toast("บันทึกเสียงต้นแบบแล้ว 👩 ลองกด 🔊 ฟังได้เลย");
+      renderVoiceList(s);
+    });
+    $$("[data-vplay]", list).forEach((b) => b.onclick = () => playURL(parentClips[b.dataset.vplay]));
+    $$("[data-vdel]", list).forEach((b) => b.onclick = () => { deleteParentClip(b.dataset.vdel); renderVoiceList(s); });
+    const badge = $("#srcBadge");
+    if (badge) badge.textContent = "เสียงที่ใช้: " + SOURCE_LABEL[clipSource("sound:" + s.g)];
+  }
+
   function openSound(g) {
     const s = soundOf(g);
     const grp = groupOf(s.group);
@@ -288,6 +387,7 @@
             <button class="btn primary" id="sdPlay">🔊 ฟังเสียง</button>
             <button class="btn" id="sdSlow">🐢 ช้าๆ</button>
           </div>
+          <div class="src-badge" id="srcBadge"></div>
         </div>
       </div>
 
@@ -326,9 +426,17 @@
         <div class="rec-row">
           <button class="btn rec" id="sdRec">🎙️ อัดเสียง</button>
           <button class="btn" id="sdPlayRec" disabled>▶️ ฟังเสียงฉัน</button>
+          <button class="btn" id="sdCompare" disabled>🔁 เทียบ: ต้นแบบ → ฉัน</button>
           <button class="btn" id="sdCheck">✅ ให้ไมค์ตรวจ</button>
         </div>
         <div class="result-msg" id="sdResult"></div>
+      </div>
+
+      <div class="sd-section voice">
+        <h4>🗣️ เสียงต้นแบบจากพ่อแม่</h4>
+        <p><small>พ่อแม่อัดเสียงตัวเองเป็นต้นแบบได้ แอปจะเล่นเสียงนี้แทนเสียงสังเคราะห์ทุกที่ (ทั้งการ์ดและเกม) เสียงเก็บไว้ในเครื่องนี้เท่านั้น
+        — อัดเสียงเดี่ยวให้สั้นและไม่เติมสระ เช่น /${esc(s.g)}/ ไม่ใช่ชื่อตัวอักษร</small></p>
+        <div class="voice-list" id="voiceList"></div>
       </div>
 
       <div class="done-row">
@@ -346,8 +454,9 @@
     $("#soundModal").scrollTop = 0;
 
     $("#sdPlay").onclick = $("#sdLetter").onclick = () => speakSound(s);
-    $("#sdSlow").onclick = () => speak(s.stretch ? `${s.stretch}... ${s.words[0][0]}` : s.words[0][0], { rate: 0.5 });
-    $$(".word-chip", box).forEach((b) => b.onclick = () => speak(b.dataset.word));
+    $("#sdSlow").onclick = () => speakSound(s, { slow: true });
+    $$(".word-chip", box).forEach((b) => b.onclick = () => playWord(b.dataset.word));
+    renderVoiceList(s);
     $("#sdMirror").onclick = () => {
       const w = $("#mirrorWrap");
       if (camStream) { stopMirror(); w.classList.add("hidden"); $("#sdMirror").textContent = "🪞 เปิดกระจกวิเศษ (กล้อง)"; }
@@ -359,8 +468,17 @@
       addStars(1, `เยี่ยม! ท่า ${s.action.emoji} ${s.action.name} +1⭐`);
       sfx("ok"); e.target.textContent = "✋ ทำท่าได้แล้ว ✔";
     };
-    $("#sdRec").onclick = () => toggleRecord($("#sdRec"), $("#sdPlayRec"));
-    $("#sdPlayRec").onclick = playRecording;
+    let kidURL = null;
+    $("#sdRec").onclick = async () => {
+      const blob = await recordClip($("#sdRec"), 5000);
+      if (!blob) return;
+      if (kidURL) URL.revokeObjectURL(kidURL);
+      kidURL = URL.createObjectURL(blob);
+      $("#sdPlayRec").disabled = $("#sdCompare").disabled = false;
+      toast("อัดเสร็จแล้ว! กด 🔁 เทียบ เพื่อฟังต้นแบบแล้วตามด้วยเสียงตัวเอง");
+    };
+    $("#sdPlayRec").onclick = () => kidURL && playURL(kidURL);
+    $("#sdCompare").onclick = () => kidURL && playWord(s.words[0][0], { onend: () => setTimeout(() => playURL(kidURL), 500) });
     $("#sdCheck").onclick = () => checkSpeech(s.words[0][0], $("#sdResult"), $("#sdCheck"), () => {
       if (!state.practiced[s.g + ":say"]) { state.practiced[s.g + ":say"] = true; addStars(2, "ออกเสียงถูก! +2⭐"); }
     });
@@ -524,11 +642,11 @@
           <div class="prompt-emoji">${q.emoji}</div>
           <p class="prompt-text">ฟังคำนี้ แล้วเลือก <b>เสียงแรก</b> ของคำ</p>
           <button class="btn primary big" id="hear">🔊 ฟังอีกครั้ง</button>`;
-        $("#hear").onclick = () => speak(q.word);
-        setTimeout(() => speak(q.word), 300);
+        $("#hear").onclick = () => playWord(q.word);
+        setTimeout(() => playWord(q.word), 300);
         choiceButtons(stage, q.options, q.answer, (o) => `<span class="en">${esc(o.g)}</span>`, done, () => {
           stage.insertAdjacentHTML("beforeend", `<p class="prompt-text en">${q.emoji} <b>${highlightWord(q.word, q.answer.g)}</b></p>`);
-          speak(q.word);
+          playWord(q.word);
         });
       },
     });
@@ -557,12 +675,14 @@
         $$(".letter-tile", stage).forEach((t) => t.onclick = () => {
           t.classList.add("lit"); sfx("tap");
           const s = soundOf(t.textContent);
-          if (s) { speak(s.stretch || s.words[0][0], { rate: 0.7 }); toast(`${s.action.emoji} ${s.g} — เสียงเดียวกับใน "${s.words[0][0]}" (${s.th})`); }
+          if (s) { if (clipURL("sound:" + s.g)) playURL(clipURL("sound:" + s.g)); else speak(s.stretch || s.words[0][0], { rate: 0.7 }); toast(`${s.action.emoji} ${s.g} — เสียงเดียวกับใน "${s.words[0][0]}" (${s.th})`); }
           setTimeout(() => t.classList.remove("lit"), 700);
         });
         $("#blendSlow").onclick = () => {
-          $$(".letter-tile", stage).forEach((t, k) => setTimeout(() => { t.classList.add("lit"); setTimeout(() => t.classList.remove("lit"), 500); }, k * 600));
-          speakSegmented(q.w.parts, q.w.word);
+          const tiles = $$(".letter-tile", stage);
+          const lite = (k) => { tiles[k].classList.add("lit"); setTimeout(() => tiles[k].classList.remove("lit"), 500); };
+          if (q.w.parts.every((p) => clipURL("sound:" + p))) speakSegmented(q.w.parts, q.w.word, lite);
+          else { tiles.forEach((t, k) => setTimeout(() => lite(k), k * 600)); speakSegmented(q.w.parts, q.w.word); }
         };
         choiceButtons(stage, q.options, q.w, (o) => `${o.emoji}`, done, () => {
           stage.insertAdjacentHTML("beforeend", `<div class="big-word">${q.w.parts.join("-")} → ${esc(q.w.word)} ${q.w.emoji}</div>`);
@@ -600,8 +720,8 @@
             <p class="prompt-text">คู่ <b class="en">${esc(q.topic)}</b> — ฟังให้ดี! ได้ยินคำไหน?</p>
             <button class="btn primary big" id="hear">🔊 ฟังอีกครั้ง</button>
             <p><small>💡 ${esc(q.tip)}</small></p>`;
-          $("#hear").onclick = () => speak(q.target.w, { rate: state.rate * 0.85 });
-          setTimeout(() => speak(q.target.w, { rate: state.rate * 0.85 }), 300);
+          $("#hear").onclick = () => playWord(q.target.w, { rate: state.rate * 0.85 });
+          setTimeout(() => playWord(q.target.w, { rate: state.rate * 0.85 }), 300);
           choiceButtons(stage, q.options, q.target, (o) => `${o.e}<span class="en" style="font-size:1.6rem">${esc(o.w)}</span>`, (ok) => {
             // After answering, practise saying both words
             stage.insertAdjacentHTML("beforeend", `
@@ -612,7 +732,7 @@
                 </div>
                 <div class="row-btns"><button class="btn primary" id="nextQ">ข้อต่อไป ➡️</button></div>
               </div>`);
-            $$(".word-chip", stage).forEach((c) => c.onclick = () => speak(c.dataset.word, { rate: 0.7 }));
+            $$(".word-chip", stage).forEach((c) => c.onclick = () => playWord(c.dataset.word, { rate: 0.7 }));
             $("#nextQ").onclick = (e) => { e.target.disabled = true; done(ok); };
           });
         },
@@ -658,7 +778,7 @@
           <button class="mic-ring" id="micBtn">🎤</button>
           <p class="heard" id="heard">กดไมค์แล้วพูดคำนี้ (มีโอกาส 3 ครั้ง)</p>
           <button class="btn" id="skipW">ข้าม ⏭️</button>`;
-        $("#hearW").onclick = () => speak(w.word);
+        $("#hearW").onclick = () => playWord(w.word);
         $("#segW").onclick = () => speakSegmented(w.parts, w.word);
         $("#skipW").onclick = () => done(false);
         const out = $("#heard");
@@ -858,6 +978,16 @@
   }
 
   // ================= Init =================
-  function renderAll() { renderStats(); renderJourney(); renderSoundGroups(); renderStickers(); }
+  function renderCredits() {
+    const el = $("#audioCredits");
+    if (!el) return;
+    const credits = typeof AUDIO_CREDITS !== "undefined" ? AUDIO_CREDITS : [];
+    const n = Object.keys(BUNDLED).length;
+    el.innerHTML = credits.length
+      ? `<p>มีเสียงคนจริงแนบมา ${n} ไฟล์ ขอบคุณเจ้าของเสียง:</p><ul class="credit-list">${credits.map((c) =>
+          `<li><b class="en">${esc(c.title)}</b> — ${esc(c.author)} · ${esc(c.license)} · <a href="${esc(c.source)}" target="_blank" rel="noopener">ที่มา</a></li>`).join("")}</ul>`
+      : `<p>ตอนนี้ยังไม่มีไฟล์เสียงคนจริงแนบมา แอปจึงใช้ <b>เสียงพ่อแม่</b> (ถ้าอัดไว้) หรือเสียงสังเคราะห์ของเบราว์เซอร์</p>`;
+  }
+  function renderAll() { renderStats(); renderJourney(); renderSoundGroups(); renderStickers(); renderCredits(); }
   renderAll();
 })();

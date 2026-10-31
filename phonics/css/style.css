@@ -319,3 +319,13 @@ main { max-width: 1100px; margin: 0 auto; padding: 8px 16px; }
   .brand-text { font-size: 1.1rem; }
 }
 #peek, .secret-card { user-select: none; -webkit-user-select: none; touch-action: none; }
+
+/* ---------- Real-voice controls ---------- */
+.src-badge { margin-top: 8px; font-size: .9rem; color: var(--muted); }
+.sd-section.voice { background: #eafaf5; }
+.voice-list { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.voice-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #fff; border-radius: 14px; padding: 8px 10px; }
+.vr-label { font-weight: 700; min-width: 90px; }
+.vr-src { flex: 1; font-size: .85rem; color: var(--muted); }
+.btn.small { padding: 6px 12px; font-size: .9rem; }
+.credit-list { font-size: .85rem; padding-left: 18px; }
