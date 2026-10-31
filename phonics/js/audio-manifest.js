@@ -3,38 +3,14 @@
 const AUDIO_FILES = {
   "sound:a": "audio/sound-a.mp3",
   "sound:ar": "audio/sound-ar.mp3",
-  "sound:b": "audio/sound-b.mp3",
-  "sound:c": "audio/sound-c.mp3",
-  "sound:ch": "audio/sound-ch.mp3",
-  "sound:ck": "audio/sound-ck.mp3",
-  "sound:d": "audio/sound-d.mp3",
   "sound:e": "audio/sound-e.mp3",
   "sound:ee": "audio/sound-ee.mp3",
   "sound:er": "audio/sound-er.mp3",
-  "sound:f": "audio/sound-f.mp3",
-  "sound:g": "audio/sound-g.mp3",
-  "sound:h": "audio/sound-h.mp3",
   "sound:i": "audio/sound-i.mp3",
-  "sound:j": "audio/sound-j.mp3",
-  "sound:k": "audio/sound-k.mp3",
-  "sound:l": "audio/sound-l.mp3",
-  "sound:m": "audio/sound-m.mp3",
-  "sound:n": "audio/sound-n.mp3",
-  "sound:ng": "audio/sound-ng.mp3",
   "sound:o": "audio/sound-o.mp3",
   "sound:oo": "audio/sound-oo.mp3",
   "sound:or": "audio/sound-or.mp3",
-  "sound:p": "audio/sound-p.mp3",
-  "sound:r": "audio/sound-r.mp3",
-  "sound:s": "audio/sound-s.mp3",
-  "sound:sh": "audio/sound-sh.mp3",
-  "sound:t": "audio/sound-t.mp3",
-  "sound:th": "audio/sound-th.mp3",
   "sound:u": "audio/sound-u.mp3",
-  "sound:v": "audio/sound-v.mp3",
-  "sound:w": "audio/sound-w.mp3",
-  "sound:y": "audio/sound-y.mp3",
-  "sound:z": "audio/sound-z.mp3",
   "word:ant": "audio/word-ant.mp3",
   "word:apple": "audio/word-apple.mp3",
   "word:back": "audio/word-back.mp3",
@@ -182,174 +158,6 @@ const AUDIO_FILES = {
 
 // ที่มาและสัญญาอนุญาตของทุกไฟล์
 const AUDIO_CREDITS = [
-  {
-    "key": "sound:s",
-    "title": "Voiceless alveolar sibilant.ogg",
-    "author": "Peter Isotalo",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_alveolar_sibilant.ogg"
-  },
-  {
-    "key": "sound:z",
-    "title": "Voiced alveolar sibilant.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_alveolar_sibilant.ogg"
-  },
-  {
-    "key": "sound:sh",
-    "title": "Voiceless palato-alveolar sibilant.ogg",
-    "author": "Peter Isotalo",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_palato-alveolar_sibilant.ogg"
-  },
-  {
-    "key": "sound:ch",
-    "title": "Voiceless palato-alveolar affricate.ogg",
-    "author": "Peter Isotalo",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_palato-alveolar_affricate.ogg"
-  },
-  {
-    "key": "sound:j",
-    "title": "Voiced palato-alveolar affricate.ogg",
-    "author": "The original uploader was Octane at English Wikipedia.",
-    "license": "Public domain",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_palato-alveolar_affricate.ogg"
-  },
-  {
-    "key": "sound:th",
-    "title": "Voiceless dental fricative.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_dental_fricative.ogg"
-  },
-  {
-    "key": "sound:f",
-    "title": "Voiceless labiodental fricative.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_labiodental_fricative.ogg"
-  },
-  {
-    "key": "sound:v",
-    "title": "Voiced labiodental fricative.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_labiodental_fricative.ogg"
-  },
-  {
-    "key": "sound:h",
-    "title": "Voiceless glottal fricative.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_glottal_fricative.ogg"
-  },
-  {
-    "key": "sound:m",
-    "title": "Bilabial nasal.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Bilabial_nasal.ogg"
-  },
-  {
-    "key": "sound:n",
-    "title": "Alveolar nasal.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Alveolar_nasal.ogg"
-  },
-  {
-    "key": "sound:ng",
-    "title": "Velar nasal.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Velar_nasal.ogg"
-  },
-  {
-    "key": "sound:l",
-    "title": "Alveolar lateral approximant.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Alveolar_lateral_approximant.ogg"
-  },
-  {
-    "key": "sound:r",
-    "title": "Alveolar approximant.ogg",
-    "author": "Erutuon",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Alveolar_approximant.ogg"
-  },
-  {
-    "key": "sound:w",
-    "title": "Voiced labio-velar approximant.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_labio-velar_approximant.ogg"
-  },
-  {
-    "key": "sound:y",
-    "title": "Palatal approximant.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Palatal_approximant.ogg"
-  },
-  {
-    "key": "sound:p",
-    "title": "Voiceless bilabial plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_bilabial_plosive.ogg"
-  },
-  {
-    "key": "sound:b",
-    "title": "Voiced bilabial plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_bilabial_plosive.ogg"
-  },
-  {
-    "key": "sound:t",
-    "title": "Voiceless alveolar plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_alveolar_plosive.ogg"
-  },
-  {
-    "key": "sound:d",
-    "title": "Voiced alveolar plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_alveolar_plosive.ogg"
-  },
-  {
-    "key": "sound:c",
-    "title": "Voiceless velar plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_velar_plosive.ogg"
-  },
-  {
-    "key": "sound:k",
-    "title": "Voiceless velar plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_velar_plosive.ogg"
-  },
-  {
-    "key": "sound:ck",
-    "title": "Voiceless velar plosive.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiceless_velar_plosive.ogg"
-  },
-  {
-    "key": "sound:g",
-    "title": "Voiced velar plosive 02.ogg",
-    "author": "Unknown",
-    "license": "CC BY-SA 3.0",
-    "source": "https://commons.wikimedia.org/wiki/File:Voiced_velar_plosive_02.ogg"
-  },
   {
     "key": "sound:a",
     "title": "Near-open front unrounded vowel.ogg",

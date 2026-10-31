@@ -146,6 +146,11 @@
     const url = clipURL("sound:" + s.g);
     if (url) { playURL(url, { slow, onend: () => setTimeout(() => playWord(w, { rate: slow ? 0.5 : undefined }), 350) }); return; }
     const rate = slow ? 0.5 : state.rate * 0.85;
+    if (clipURL("word:" + w)) {
+      // no clean recording of the lone sound: play the real recording of the key word twice
+      playWord(w, { rate, onend: () => setTimeout(() => playWord(w, { rate }), 450) });
+      return;
+    }
     if (s.stretch) speak(`${s.stretch}... ${w}`, { rate });
     else speak(`${w}. ${w}`, { rate });
   }
@@ -367,7 +372,12 @@
     $$("[data-vplay]", list).forEach((b) => b.onclick = () => playURL(parentClips[b.dataset.vplay]));
     $$("[data-vdel]", list).forEach((b) => b.onclick = () => { deleteParentClip(b.dataset.vdel); renderVoiceList(s); });
     const badge = $("#srcBadge");
-    if (badge) badge.textContent = "เสียงที่ใช้: " + SOURCE_LABEL[clipSource("sound:" + s.g)];
+    if (badge) {
+      const src = clipSource("sound:" + s.g);
+      badge.textContent = "เสียงที่ใช้: " + (src === "tts" && clipSource("word:" + s.words[0][0]) !== "tts"
+        ? SOURCE_LABEL.real + " (จากคำ " + s.words[0][0] + ")"
+        : SOURCE_LABEL[src]);
+    }
   }
 
   function openSound(g) {
@@ -675,7 +685,7 @@
         $$(".letter-tile", stage).forEach((t) => t.onclick = () => {
           t.classList.add("lit"); sfx("tap");
           const s = soundOf(t.textContent);
-          if (s) { if (clipURL("sound:" + s.g)) playURL(clipURL("sound:" + s.g)); else speak(s.stretch || s.words[0][0], { rate: 0.7 }); toast(`${s.action.emoji} ${s.g} — เสียงเดียวกับใน "${s.words[0][0]}" (${s.th})`); }
+          if (s) { if (clipURL("sound:" + s.g)) playURL(clipURL("sound:" + s.g)); else if (s.stretch) speak(s.stretch, { rate: 0.7 }); else playWord(s.words[0][0], { rate: 0.7 }); toast(`${s.action.emoji} ${s.g} — เสียงเดียวกับใน "${s.words[0][0]}" (${s.th})`); }
           setTimeout(() => t.classList.remove("lit"), 700);
         });
         $("#blendSlow").onclick = () => {
@@ -984,8 +994,8 @@
     const credits = typeof AUDIO_CREDITS !== "undefined" ? AUDIO_CREDITS : [];
     const n = Object.keys(BUNDLED).length;
     el.innerHTML = credits.length
-      ? `<p>มีเสียงคนจริงแนบมา ${n} ไฟล์ ขอบคุณเจ้าของเสียง:</p><ul class="credit-list">${credits.map((c) =>
-          `<li><b class="en">${esc(c.title)}</b> — ${esc(c.author)} · ${esc(c.license)} · <a href="${esc(c.source)}" target="_blank" rel="noopener">ที่มา</a></li>`).join("")}</ul>`
+      ? `<p>มีเสียงคนจริงจาก Wikimedia Commons ${n} ไฟล์ ขอบคุณเจ้าของเสียงทุกท่าน (แต่ละไฟล์ใช้ตามสัญญาอนุญาตที่ระบุ — CC BY-SA ต้องแชร์ต่อด้วยสัญญาเดียวกัน)</p><ul class="credit-list">${credits.map((c) =>
+          `<li><b class="en">${esc(c.title)}</b> — ${esc(/^unknown$|no machine-readable/i.test(c.author) ? "ดูชื่อผู้อัดที่หน้าต้นฉบับ" : c.author)} · ${esc(c.license)} · <a href="${esc(c.source)}" target="_blank" rel="noopener">ที่มา</a></li>`).join("")}</ul>`
       : `<p>ตอนนี้ยังไม่มีไฟล์เสียงคนจริงแนบมา แอปจึงใช้ <b>เสียงพ่อแม่</b> (ถ้าอัดไว้) หรือเสียงสังเคราะห์ของเบราว์เซอร์</p>`;
   }
   function renderAll() { renderStats(); renderJourney(); renderSoundGroups(); renderStickers(); renderCredits(); }

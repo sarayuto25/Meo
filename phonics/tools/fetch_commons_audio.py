@@ -31,32 +31,11 @@ API = "https://commons.wikimedia.org/w/api.php"
 UA = "MeoPhonicsBot/1.0 (https://github.com/sarayuto25/meo)"
 OK_LICENSE = re.compile(r"^(cc0|public domain|pd|cc[- ]by(-sa)?[- ]\d)", re.I)
 
-# Phoneme -> candidate Commons IPA recordings (first one that exists wins)
+# Phoneme -> candidate Commons IPA recordings (first one that exists wins).
+# Only vowels: the IPA consonant recordings on Commons are spoken inside syllables
+# ("sa … asa"), which would teach children to add a vowel after consonants.
+# For consonants the app plays the real recording of the example word instead.
 PHONEMES = {
-    "s": ["Voiceless alveolar sibilant.ogg"],
-    "z": ["Voiced alveolar sibilant.ogg"],
-    "sh": ["Voiceless palato-alveolar sibilant.ogg"],
-    "ch": ["Voiceless palato-alveolar affricate.ogg"],
-    "j": ["Voiced palato-alveolar affricate.ogg"],
-    "th": ["Voiceless dental fricative.ogg"],
-    "f": ["Voiceless labiodental fricative.ogg"],
-    "v": ["Voiced labiodental fricative.ogg"],
-    "h": ["Voiceless glottal fricative.ogg"],
-    "m": ["Bilabial nasal.ogg"],
-    "n": ["Alveolar nasal.ogg"],
-    "ng": ["Velar nasal.ogg"],
-    "l": ["Alveolar lateral approximant.ogg"],
-    "r": ["Alveolar approximant.ogg"],
-    "w": ["Voiced labio-velar approximant.ogg"],
-    "y": ["Palatal approximant.ogg"],
-    "p": ["Voiceless bilabial plosive.ogg"],
-    "b": ["Voiced bilabial plosive.ogg"],
-    "t": ["Voiceless alveolar plosive.ogg"],
-    "d": ["Voiced alveolar plosive.ogg"],
-    "c": ["Voiceless velar plosive.ogg"],
-    "k": ["Voiceless velar plosive.ogg"],
-    "ck": ["Voiceless velar plosive.ogg"],
-    "g": ["Voiced velar plosive 02.ogg", "Voiced velar plosive.ogg"],
     "a": ["Near-open front unrounded vowel.ogg"],
     "e": ["Open-mid front unrounded vowel.ogg"],
     "i": ["Near-close near-front unrounded vowel.ogg"],
