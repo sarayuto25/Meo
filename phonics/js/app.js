@@ -14,7 +14,10 @@
     try { return { ...defaults, ...JSON.parse(localStorage.getItem(STORE_KEY) || "{}") }; }
     catch { return { ...defaults }; }
   }
-  function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); renderStats(); }
+  function save() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch { /* storage unavailable */ }
+    renderStats();
+  }
 
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -112,6 +115,10 @@
 
   // ================= Speech recognition =================
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  // set when the browser/frame refuses the microphone: fall back to parent judging
+  let srBlocked = false;
+  const canListen = () => SR && !srBlocked;
+  const isBlocked = (e) => e === "not-allowed" || e === "service-not-allowed" || e === "audio-capture";
   function listen({ onResult, onEnd, onError }) {
     if (!SR) { onError && onError("unsupported"); return null; }
     const r = new SR();
@@ -371,7 +378,7 @@
   }
 
   function checkSpeech(target, outEl, btn, onGood) {
-    if (!SR) {
+    if (!canListen()) {
       outEl.className = "result-msg";
       outEl.innerHTML = `เบราว์เซอร์นี้ตรวจเสียงไม่ได้ 😿 ให้พ่อแม่ฟังแล้วตัดสิน:
         <button class="btn ok" data-judge="1">👍 ถูก</button> <button class="btn" data-judge="0">🔁 ลองใหม่</button>`;
@@ -399,6 +406,7 @@
         }
       },
       onError: (err) => {
+        if (isBlocked(err)) { srBlocked = true; checkSpeech(target, outEl, btn, onGood); return; }
         outEl.className = "result-msg try";
         outEl.textContent = err === "not-allowed" ? "กรุณาอนุญาตไมโครโฟนก่อนนะ" : err === "no-speech" ? "ไม่ได้ยินเสียงเลย พูดดังๆ อีกครั้งนะ" : "ฟังไม่ชัด ลองอีกครั้งนะ";
       },
@@ -656,7 +664,7 @@
         const out = $("#heard");
         $("#micBtn").onclick = () => {
           const mic = $("#micBtn");
-          if (!SR) {
+          if (!canListen()) {
             out.innerHTML = `เบราว์เซอร์นี้ตรวจเสียงไม่ได้ ให้พ่อแม่ตัดสิน:
               <button class="btn ok" id="jY">👍 ถูก</button> <button class="btn" id="jN">🔁 ยังไม่ถูก</button>`;
             $("#jY").onclick = () => { sfx("ok"); confettiSmall(); done(true); };
@@ -674,7 +682,10 @@
                 if (tries >= 3) done(false);
               }
             },
-            onError: (e) => { out.textContent = e === "not-allowed" ? "กรุณาอนุญาตไมโครโฟน" : "ไม่ได้ยินเลย ลองพูดดังๆ อีกครั้ง"; },
+            onError: (e) => {
+              if (isBlocked(e)) { srBlocked = true; mic.classList.remove("listening"); mic.click(); return; }
+              out.textContent = "ไม่ได้ยินเลย ลองพูดดังๆ อีกครั้ง";
+            },
             onEnd: () => mic.classList.remove("listening"),
           });
         };
@@ -802,8 +813,15 @@
   $("#rateRange").oninput = (e) => { state.rate = +e.target.value; $("#rateVal").textContent = state.rate + "x"; save(); };
   $("#sfxToggle").onchange = (e) => { state.sfx = e.target.checked; save(); };
   $("#testVoice").onclick = () => speak("Hello! s s s, snake. c a t, cat!");
-  $("#resetBtn").onclick = () => {
-    if (!confirm("ล้างดาวและความก้าวหน้าทั้งหมด?")) return;
+  let resetArmed = false;
+  $("#resetBtn").onclick = (e) => {
+    // two-tap confirm (window.confirm is blocked in some embedded viewers)
+    if (!resetArmed) {
+      resetArmed = true; e.target.textContent = "⚠️ แตะอีกครั้งเพื่อยืนยัน";
+      setTimeout(() => { resetArmed = false; e.target.textContent = "🗑️ ล้างความก้าวหน้า"; }, 4000);
+      return;
+    }
+    resetArmed = false; e.target.textContent = "🗑️ ล้างความก้าวหน้า";
     state = { ...defaults, name: state.name, voiceURI: state.voiceURI, rate: state.rate, sfx: state.sfx };
     save(); renderAll(); toast("ล้างข้อมูลแล้ว เริ่มใหม่กันเลย!");
   };
