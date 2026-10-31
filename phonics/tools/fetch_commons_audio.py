@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -27,7 +28,7 @@ ROOT = Path(__file__).resolve().parent.parent
 AUDIO_DIR = ROOT / "audio"
 MANIFEST = ROOT / "js" / "audio-manifest.js"
 API = "https://commons.wikimedia.org/w/api.php"
-UA = "MeoPhonics/1.0 (educational phonics site; https://github.com/sarayuto25/meo)"
+UA = "MeoPhonicsBot/1.0 (https://github.com/sarayuto25/meo)"
 OK_LICENSE = re.compile(r"^(cc0|public domain|pd|cc[- ]by(-sa)?[- ]\d)", re.I)
 
 # Phoneme -> candidate Commons IPA recordings (first one that exists wins)
@@ -80,19 +81,31 @@ def words_from_data():
     return sorted(words - graphemes)
 
 
+def wait_for(e, attempt):
+    """Seconds to wait after an HTTP error: honour Retry-After (capped), else back off."""
+    ra = e.headers.get("Retry-After") if isinstance(e, urllib.error.HTTPError) else None
+    try:
+        return min(int(ra), 300) if ra else 10 * (attempt + 1)
+    except ValueError:
+        return 10 * (attempt + 1)
+
+
 def api(params):
-    params = {**params, "format": "json", "formatversion": "2"}
+    params = {**params, "format": "json", "formatversion": "2", "maxlag": "5"}
     url = API + "?" + urllib.parse.urlencode(params)
-    for attempt in range(4):
+    for attempt in range(8):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA})
             with urllib.request.urlopen(req, timeout=30) as r:
                 return json.load(r)
         except Exception as e:  # noqa: BLE001
-            if attempt == 3:
+            if attempt == 7:
                 raise
-            print(f"  retry ({e})", file=sys.stderr)
-            time.sleep(2 ** (attempt + 1))
+            w = wait_for(e, attempt)
+            print(f"  api retry in {w}s ({e})", file=sys.stderr, flush=True)
+            time.sleep(w)
+        finally:
+            time.sleep(1)
 
 
 def strip_html(s):
@@ -134,11 +147,34 @@ def search_lingualibre(word):
     return [h["title"][5:] for h in data.get("query", {}).get("search", []) if pat.match(h["title"])]
 
 
+def transcoded_mp3(url):
+    """Commons serves an MP3 transcode of every audio file; upload.wikimedia.org
+    throttles bulk downloads of originals, so prefer the transcode."""
+    name = url.rsplit("/", 1)[1]
+    return url.replace("/wikipedia/commons/", "/wikipedia/commons/transcoded/", 1) + f"/{name}.mp3"
+
+
+def fetch_bytes(url):
+    for attempt in range(6):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 404 or attempt == 5:
+                raise
+            w = wait_for(e, attempt)
+            print(f"  download retry in {w}s ({e.code})", file=sys.stderr, flush=True)
+            time.sleep(w)
+
+
 def download_and_convert(url, dest):
-    with tempfile.NamedTemporaryFile(suffix=Path(url).suffix) as tmp:
-        req = urllib.request.Request(url, headers={"User-Agent": UA})
-        with urllib.request.urlopen(req, timeout=60) as r:
-            tmp.write(r.read())
+    try:
+        data, suffix = fetch_bytes(transcoded_mp3(url)), ".mp3"
+    except urllib.error.HTTPError:
+        data, suffix = fetch_bytes(url), Path(url).suffix
+    with tempfile.NamedTemporaryFile(suffix=suffix) as tmp:
+        tmp.write(data)
         tmp.flush()
         # mono, trimmed leading/trailing silence, normalised loudness, small MP3
         subprocess.run([
@@ -162,12 +198,16 @@ def main():
             report.append(f"skip {key}: licence '{info['license']}' ({title})")
             return False
         dest = AUDIO_DIR / fname
-        dur = download_and_convert(info["url"], dest)
+        try:
+            dur = download_and_convert(info["url"], dest)
+        except Exception as e:  # noqa: BLE001
+            report.append(f"fail {key}: {e} ({title})")
+            return False
         files[key] = f"audio/{fname}"
         credits.append({"key": key, "title": title, "author": info["author"][:120],
                         "license": info["license"], "source": info["page"]})
         report.append(f"ok   {key:<14} {dur:4.1f}s  {info['license']:<14} {title}")
-        time.sleep(0.3)
+        time.sleep(2)
         return True
 
     # --- phonemes
